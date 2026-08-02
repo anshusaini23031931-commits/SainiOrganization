@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>LightLab · Reflection &amp; Refraction, Interactively</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.MathJax = {tex: {inlineMath: [['\\(', '\\)']]}};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js" async></script>
+<style>
+:root{
+  --bg:#05070d;
+  --bg2:#0a0f1c;
+  --panel:rgba(255,255,255,0.045);
+  --panel-solid:#0d1424;
+  --border:rgba(255,255,255,0.10);
+  --border-soft:rgba(255,255,255,0.06);
+  --text:#eef1fb;
+  --text-dim:#8e97b3;
+  --text-faint:#5c6480;
+  --violet:#8b7bf3;
+  --blue:#4d9fff;
+  --cyan:#4fd8e0;
+  --amber:#ffb454;
+  --red:#ff6b6b;
+  --green:#5fe0a0;
+  --ray:#ffd479;
+  --radius:20px;
+  --radius-sm:12px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:
+    radial-gradient(ellipse 900px 500px at 15% -10%, rgba(139,123,243,0.16), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 90% 10%, rgba(77,159,255,0.12), transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+h1,h2,h3,h4,.display{font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+::selection{background:rgba(139,123,243,0.35);}
+a{color:inherit;}
+button{font-family:inherit;}
+
+/* ---------- Ray divider (signature motif) ---------- */
+.ray-strip{position:relative;height:2px;width:100%;overflow:visible;margin:0 0;}
+.ray-strip svg{width:100%;height:40px;display:block;position:relative;top:-19px;}
+
+/* ---------- Top nav ---------- */
+header{
+  position:sticky;top:0;z-index:100;
+  background:rgba(5,7,13,0.72);
+  backdrop-filter:blur(18px) saturate(140%);
+  border-bottom:1px solid var(--border-soft);
+}
+.nav-wrap{max-width:1320px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:20px;}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:-0.02em;white-space:nowrap;}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,var(--amber),var(--red));box-shadow:0 0 14px var(--amber);}
+nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;}
+nav::-webkit-scrollbar{display:none;}
+.navbtn{
+  background:transparent;border:1px solid transparent;color:var(--text-dim);
+  padding:8px 14px;border-radius:100px;font-size:13.5px;font-weight:500;cursor:pointer;
+  white-space:nowrap;transition:.18s;
+}
+.navbtn:hover{color:var(--text);background:var(--panel);}
+.navbtn.active{color:var(--bg);background:linear-gradient(135deg,var(--cyan),var(--blue));font-weight:600;}
+.search-mini{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border-soft);border-radius:100px;padding:7px 14px;min-width:150px;}
+.search-mini input{background:none;border:none;outline:none;color:var(--text);font-size:13px;width:100%;}
+.search-mini input::placeholder{color:var(--text-faint);}
+
+/* ---------- Layout shells ---------- */
+main{max-width:1180px;margin:0 auto;padding:0 24px 120px;}
+.view{display:none;animation:fadein .35s ease;}
+.view.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+/* ---------- Hero ---------- */
+.hero{position:relative;min-height:min(640px,88vh);display:flex;align-items:center;overflow:hidden;border-radius:0 0 32px 32px;margin:0 -24px 64px;padding:0 24px;}
+#hero-canvas{position:absolute;inset:0;z-index:0;}
+.hero-inner{position:relative;z-index:2;max-width:1180px;margin:0 auto;width:100%;display:grid;grid-template-columns:1.1fr 0.9fr;gap:40px;align-items:center;padding-top:70px;}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);font-weight:600;margin-bottom:18px;}
+.eyebrow::before{content:'';width:16px;height:1px;background:var(--cyan);}
+.hero h1{font-size:clamp(34px,5.2vw,58px);line-height:1.04;font-weight:700;letter-spacing:-0.03em;margin:0 0 18px;}
+.hero h1 .grad{background:linear-gradient(120deg,var(--amber),var(--red) 45%,var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.hero p{color:var(--text-dim);font-size:16.5px;line-height:1.65;max-width:480px;margin:0 0 30px;}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;}
+.btn{border:none;cursor:pointer;font-weight:600;font-size:14.5px;padding:13px 24px;border-radius:100px;transition:.2s;display:inline-flex;align-items:center;gap:8px;}
+.btn-primary{background:linear-gradient(135deg,var(--amber),var(--red));color:#180701;box-shadow:0 8px 30px -8px rgba(255,140,70,0.55);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 36px -8px rgba(255,140,70,0.7);}
+.btn-ghost{background:var(--panel);border:1px solid var(--border);color:var(--text);}
+.btn-ghost:hover{background:rgba(255,255,255,0.08);}
+.hero-stats{display:flex;gap:26px;margin-top:38px;flex-wrap:wrap;}
+.hero-stats div b{display:block;font-size:22px;font-family:'Space Grotesk';}
+.hero-stats div span{font-size:12px;color:var(--text-faint);}
+
+/* ---------- Cards / glass ---------- */
+.card{
+  background:var(--panel);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius);
+  padding:26px;
+  backdrop-filter:blur(10px);
+}
+.card-hover{transition:.22s;cursor:pointer;}
+.card-hover:hover{border-color:var(--border);transform:translateY(-3px);background:rgba(255,255,255,0.065);}
+.grid{display:grid;gap:18px;}
+.grid-3{grid-template-columns:repeat(3,1fr);}
+.grid-2{grid-template-columns:repeat(2,1fr);}
+@media(max-width:900px){.grid-3{grid-template-columns:repeat(2,1fr);}.grid-2{grid-template-columns:1fr;}}
+@media(max-width:640px){.grid-3{grid-template-columns:1fr;}}
+
+.section-head{margin:70px 0 26px;}
+.section-head .k{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);font-weight:600;}
+.section-head h2{font-size:clamp(24px,3vw,34px);margin:8px 0 10px;letter-spacing:-0.02em;}
+.section-head p{color:var(--text-dim);max-width:640px;line-height:1.6;font-size:15px;}
+.view > .section-head:first-child{margin-top:48px;}
+
+.topic-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:14px;background:linear-gradient(135deg,rgba(77,159,255,0.18),rgba(139,123,243,0.18));border:1px solid var(--border-soft);}
+.card h3{margin:0 0 8px;font-size:17px;}
+.card p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.6;}
+
+/* pills */
+.pill{display:inline-block;font-size:11.5px;padding:3px 10px;border-radius:100px;background:var(--panel);border:1px solid var(--border-soft);color:var(--text-dim);margin-right:6px;}
+
+/* ---------- Simulator shell ---------- */
+.sim{
+  border:1px solid var(--border-soft);border-radius:var(--radius);overflow:hidden;
+  background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015));
+  margin:22px 0 34px;
+}
+.sim-head{padding:16px 22px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.sim-head h4{margin:0;font-size:15px;font-weight:600;}
+.sim-body{display:grid;grid-template-columns:1fr 300px;}
+@media(max-width:860px){.sim-body{grid-template-columns:1fr;}}
+.sim-canvas-wrap{padding:6px;background:#03040a;position:relative;}
+.sim-canvas-wrap canvas{width:100%;display:block;}
+.sim-controls{padding:20px;border-left:1px solid var(--border-soft);display:flex;flex-direction:column;gap:16px;}
+@media(max-width:860px){.sim-controls{border-left:none;border-top:1px solid var(--border-soft);}}
+.ctrl label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-dim);margin-bottom:6px;}
+.ctrl label b{color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:500;}
+input[type=range]{width:100%;accent-color:var(--cyan);}
+.seg{display:flex;background:var(--panel);border:1px solid var(--border-soft);border-radius:10px;padding:3px;gap:3px;}
+.seg button{flex:1;background:none;border:none;color:var(--text-dim);padding:8px 4px;border-radius:8px;font-size:12.5px;cursor:pointer;font-weight:500;}
+.seg button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#03040a;font-weight:700;}
+.readout{background:rgba(0,0,0,0.28);border:1px solid var(--border-soft);border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.9;}
+.readout .row{display:flex;justify-content:space-between;}
+.readout .row span:last-child{font-family:'JetBrains Mono',monospace;color:var(--cyan);}
+.tag-real{color:var(--green);}
+.tag-virtual{color:var(--amber);}
+
+/* ---------- Formula box ---------- */
+.formula-box{
+  background:linear-gradient(135deg,rgba(139,123,243,0.10),rgba(77,159,255,0.06));
+  border:1px solid rgba(139,123,243,0.25);
+  border-radius:16px;padding:22px 26px;margin:16px 0;
+}
+.formula-box .lbl{font-size:11.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--violet);font-weight:700;margin-bottom:8px;}
+.formula-box .eq{font-size:20px;font-family:'JetBrains Mono',monospace;color:var(--text);}
+
+/* ---------- Tables ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border-soft);border-radius:14px;margin:18px 0;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:600px;}
+th{background:rgba(255,255,255,0.05);text-align:left;padding:12px 14px;font-weight:600;color:var(--text-dim);font-size:12px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+td{padding:12px 14px;border-top:1px solid var(--border-soft);color:var(--text);}
+tr:hover td{background:rgba(255,255,255,0.025);}
+.badge{padding:2px 9px;border-radius:100px;font-size:11.5px;font-weight:600;}
+.badge.real{background:rgba(95,224,160,0.15);color:var(--green);}
+.badge.virtual{background:rgba(255,180,84,0.15);color:var(--amber);}
+
+/* ---------- Clickable case table under a simulator ---------- */
+.sim-cases{grid-column:1/-1;border-top:1px solid var(--border-soft);}
+.sim-cases-lbl{padding:14px 22px 4px;font-size:12px;color:var(--text-faint);}
+.sim-cases table{min-width:0;}
+.sim-cases tbody tr{cursor:pointer;transition:.15s;}
+.sim-cases tbody tr:hover td{background:rgba(79,216,224,0.06);}
+.sim-cases tbody tr.case-active td{background:rgba(79,216,224,0.14);border-top-color:rgba(79,216,224,0.4);}
+.sim-cases tbody tr.case-active td:first-child{color:var(--cyan);font-weight:600;}
+
+/* ---------- Accordion (theory) ---------- */
+.acc{border:1px solid var(--border-soft);border-radius:14px;overflow:hidden;margin-bottom:10px;background:var(--panel);}
+.acc-h{padding:16px 20px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:600;font-size:14.5px;}
+.acc-h .arrow{transition:.2s;color:var(--text-faint);}
+.acc.open .arrow{transform:rotate(45deg);color:var(--amber);}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0 20px;}
+.acc.open .acc-body{max-height:800px;padding:0 20px 20px;}
+.acc-body p{color:var(--text-dim);font-size:14px;line-height:1.75;margin:0 0 12px;}
+.acc-body ul{color:var(--text-dim);font-size:14px;line-height:1.8;padding-left:20px;margin:8px 0;}
+.acc-body li::marker{color:var(--amber);}
+
+/* ---------- Tip boxes ---------- */
+.tip{border-radius:14px;padding:16px 18px;font-size:13.5px;line-height:1.65;margin:14px 0;border:1px solid;}
+.tip.exam{background:rgba(95,224,160,0.06);border-color:rgba(95,224,160,0.28);}
+.tip.mistake{background:rgba(255,107,107,0.06);border-color:rgba(255,107,107,0.28);}
+.tip.trick{background:rgba(255,180,84,0.06);border-color:rgba(255,180,84,0.28);}
+.tip .lbl{font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;display:block;}
+.tip.exam .lbl{color:var(--green);}
+.tip.mistake .lbl{color:var(--red);}
+.tip.trick .lbl{color:var(--amber);}
+
+/* ---------- Quiz ---------- */
+.quiz-q{margin-bottom:10px;}
+.quiz-opts{display:grid;gap:8px;margin-top:12px;}
+.qopt{text-align:left;padding:12px 16px;border-radius:12px;border:1px solid var(--border-soft);background:var(--panel);cursor:pointer;font-size:14px;color:var(--text);transition:.15s;}
+.qopt:hover{border-color:var(--border);}
+.qopt.correct{border-color:var(--green);background:rgba(95,224,160,0.12);}
+.qopt.wrong{border-color:var(--red);background:rgba(255,107,107,0.12);}
+.qopt[disabled]{cursor:default;}
+.quiz-score{position:sticky;top:80px;text-align:center;}
+.quiz-score .num{font-size:44px;font-weight:700;font-family:'Space Grotesk';background:linear-gradient(135deg,var(--amber),var(--violet));-webkit-background-clip:text;color:transparent;}
+
+/* misc */
+.footer{margin-top:100px;padding:40px 24px;border-top:1px solid var(--border-soft);text-align:center;color:var(--text-faint);font-size:13px;}
+.glossary-item{padding:16px 0;border-top:1px solid var(--border-soft);}
+.glossary-item:first-child{border-top:none;}
+.glossary-item b{display:block;margin-bottom:4px;font-family:'Space Grotesk';}
+.glossary-item span{color:var(--text-dim);font-size:13.5px;line-height:1.6;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:30px;}
+@media(max-width:800px){.two-col{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav-wrap">
+    <div class="brand"><span class="dot"></span>LightLab</div>
+    <nav id="mainnav"></nav>
+    <div class="search-mini"><span>🔍</span><input id="searchbox" placeholder="Search a topic…"></div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ HOME ============ -->
+<section class="view active" id="view-home">
+  <div class="hero">
+    <canvas id="hero-canvas"></canvas>
+    <div class="hero-inner">
+      <div>
+        <div class="eyebrow">NCERT Class 10 · Physics</div>
+        <h1>Light bends.<br>So does the way<br class="mobile-only">you <span class="grad">learn it.</span></h1>
+        <p>An interactive lab for <b>Light — Reflection and Refraction</b>. Drag the object, tilt the ray, watch the image form — the physics is real and computed live, not animated by hand.</p>
+        <div class="hero-cta">
+          <button class="btn btn-primary" onclick="go('mirrors')">Start with Mirrors →</button>
+          <button class="btn btn-ghost" onclick="go('refraction')">Jump to Refraction</button>
+        </div>
+        <div class="hero-stats">
+          <div><b>12</b><span>topic modules</span></div>
+          <div><b>6</b><span>live simulators</span></div>
+          <div><b>30+</b><span>practice questions</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <div class="k">Chapter Map</div>
+    <h2>Everything in the chapter, in one place</h2>
+    <p>Work through it in order, or jump straight to what you need before the exam.</p>
+  </div>
+  <div class="grid grid-3" id="chapter-map"></div>
+
+  <div class="section-head">
+    <div class="k">Why simulate</div>
+    <h2>Ray diagrams you can argue with</h2>
+    <p>Every diagram below is drawn from the actual mirror/lens equations — move the object and the image position, magnification, and nature update in real time, exactly like solving the numerical yourself.</p>
+  </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="topic-icon">🪞</div>
+      <h3>Cartesian sign convention, enforced</h3>
+      <p>Every simulator uses the same sign convention NCERT expects on paper — so what you see matches what you're taught to write.</p>
+    </div>
+    <div class="card">
+      <div class="topic-icon">📐</div>
+      <h3>Three-ray construction, always</h3>
+      <p>Concave/convex mirrors and lenses are drawn with the standard three characteristic rays, so you can see exactly why the image lands where it does.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OVERVIEW ============ -->
+<section class="view" id="view-overview">
+  <div class="section-head">
+    <div class="k">Chapter Overview</div>
+    <h2>Light — Reflection and Refraction</h2>
+    <p>Estimated study time: <b>6–8 hours</b> · Difficulty: <b>Moderate</b> · Weight in board exams: <b>high</b> (numericals + ray diagrams appear almost every year).</p>
+  </div>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Learning objectives</h3>
+      <ul style="color:var(--text-dim);font-size:14px;line-height:1.9;padding-left:18px;margin:0;">
+        <li>State and verify the laws of reflection and refraction</li>
+        <li>Construct ray diagrams for concave/convex mirrors and lenses</li>
+        <li>Apply the mirror formula, lens formula and magnification correctly with sign convention</li>
+        <li>Define and compute refractive index and power of a lens</li>
+        <li>Explain real-life devices: torches, solar cookers, corrective lenses, camera</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Chapter structure</h3>
+      <p style="margin-bottom:10px;">1. Reflection of Light &amp; its laws<br>2. Spherical mirrors — concave &amp; convex<br>3. Mirror formula, magnification, sign convention<br>4. Refraction of light &amp; Snell's Law<br>5. Refractive index<br>6. Spherical lenses — convex &amp; concave<br>7. Lens formula, power, magnification</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REFLECTION ============ -->
+<section class="view" id="view-reflection">
+  <div class="section-head">
+    <div class="k">01 · Reflection</div>
+    <h2>Reflection of Light</h2>
+    <p>When light bounces off a surface instead of passing through it. How <i>evenly</i> it bounces depends entirely on the surface.</p>
+  </div>
+
+  <div class="acc open"><div class="acc-h" onclick="toggleAcc(this)">Definition &amp; types of reflection <span class="arrow">+</span></div>
+    <div class="acc-body">
+      <p><b>Reflection</b> is the phenomenon of light bouncing back into the same medium after striking a surface.</p>
+      <div class="two-col">
+        <div><b style="color:var(--cyan)">Regular (specular) reflection</b><p>Parallel rays stay parallel after striking a smooth, polished surface (e.g. a plane mirror) — you get a sharp, clear image.</p></div>
+        <div><b style="color:var(--amber)">Diffuse reflection</b><p>Parallel rays scatter in many directions off a rough surface (paper, cloth, a wall) — no clear image forms, but this is why we can see non-shiny objects at all.</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="acc"><div class="acc-h" onclick="toggleAcc(this)">Laws of reflection <span class="arrow">+</span></div>
+    <div class="acc-body">
+      <ul>
+        <li>The incident ray, the reflected ray, and the normal at the point of incidence all lie in the same plane.</li>
+        <li>The angle of incidence equals the angle of reflection: \(\angle i = \angle r\), always measured from the normal — never from the mirror surface.</li>
+      </ul>
+      <div class="tip mistake"><span class="lbl">Common mistake</span>Students often measure angles from the mirror surface instead of the normal. Examiners specifically check this in diagrams — always draw the normal as a dashed line first.</div>
+    </div>
+  </div>
+
+  <div class="sim">
+    <div class="sim-head"><h4>🔬 Live: Laws of reflection on a plane mirror</h4><span class="pill">drag the slider</span></div>
+    <div class="sim-body">
+      <div class="sim-canvas-wrap"><canvas id="cv-reflect" height="360"></canvas></div>
+      <div class="sim-controls">
+        <div class="ctrl"><label>Angle of incidence <b id="refl-ival">40°</b></label><input type="range" id="refl-i" min="5" max="80" value="40"></div>
+        <div class="readout">
+          <div class="row"><span>∠ incidence (i)</span><span id="refl-i-out">40°</span></div>
+          <div class="row"><span>∠ reflection (r)</span><span id="refl-r-out">40°</span></div>
+          <div class="row"><span>i = r ?</span><span style="color:var(--green)">always true</span></div>
+        </div>
+        <p style="font-size:12.5px;color:var(--text-faint);line-height:1.6;margin:0;">Yellow = incident ray, cyan = reflected ray, dashed white = normal. Notice the mirror surface never enters the angle measurement.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip exam"><span class="lbl">Exam tip</span>"Verification of laws of reflection" is a standard practical-based question — remember the setup uses a plane mirror, a protractor board, and pins to trace the incident/reflected rays.</div>
+</section>
+
+<!-- ============ MIRRORS ============ -->
+<section class="view" id="view-mirrors">
+  <div class="section-head">
+    <div class="k">02 · Spherical Mirrors</div>
+    <h2>Concave, Convex &amp; Plane Mirrors</h2>
+    <p>A spherical mirror is a piece cut from a hollow sphere, silvered on one side. Which side reflects decides everything.</p>
+  </div>
+
+  <div class="grid grid-3" style="margin-bottom:10px;">
+    <div class="card"><div class="topic-icon">🪟</div><h3>Plane mirror</h3><p>Flat reflecting surface. Image is always virtual, erect, laterally inverted, and the same size — formed as far behind the mirror as the object is in front.</p></div>
+    <div class="card"><div class="topic-icon">🥄</div><h3>Concave mirror</h3><p>Reflects from the <i>inner</i> curved surface (like the inside of a spoon) — converges parallel rays to a real focus. Used in torches, headlights, solar cookers, shaving mirrors.</p></div>
+    <div class="card"><div class="topic-icon">🔮</div><h3>Convex mirror</h3><p>Reflects from the <i>outer</i> curved surface — diverges rays, always gives a virtual, erect, diminished image with a wide field of view. Used as vehicle rear-view mirrors.</p></div>
+  </div>
+
+  <div class="acc"><div class="acc-h" onclick="toggleAcc(this)">Key terms: pole, focus, centre of curvature <span class="arrow">+</span></div>
+    <div class="acc-body">
+      <ul>
+        <li><b>Pole (P)</b> — the centre point of the mirror's reflecting surface.</li>
+        <li><b>Centre of curvature (C)</b> — the centre of the sphere the mirror was cut from.</li>
+        <li><b>Radius of curvature (R)</b> — distance from pole to centre of curvature, \(PC\).</li>
+        <li><b>Principal axis</b> — the straight line through P and C.</li>
+        <li><b>Principal focus (F)</b> — the point on the principal axis where rays parallel to it converge (concave) or appear to diverge from (convex) after reflection.</li>
+        <li><b>Focal length (f)</b> — distance \(PF\). For spherical mirrors, \(f = R/2\).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sim">
+    <div class="sim-head">
+      <h4>🔬 Live: Spherical mirror ray-diagram simulator</h4>
+      <div class="seg" style="width:auto;">
+        <button class="active" onclick="mirrorSetType('concave',this)">Concave</button>
+        <button onclick="mirrorSetType('convex',this)">Convex</button>
+      </div>
+    </div>
+    <div class="sim-body">
+      <div class="sim-canvas-wrap"><canvas id="cv-mirror" height="420"></canvas></div>
+      <div class="sim-controls">
+        <div class="ctrl"><label>Object distance |u| <b id="mir-uval">30 cm</b></label><input type="range" id="mir-u" min="5" max="100" value="30"></div>
+        <div class="ctrl"><label>Focal length |f| <b id="mir-fval">15 cm</b></label><input type="range" id="mir-f" min="5" max="30" value="15"></div>
+        <div class="readout" id="mir-readout"></div>
+      </div>
+    </div>
+    <div class="sim-cases">
+      <div class="sim-cases-lbl">Jump straight to a case — click a row, the diagram above updates instantly</div>
+      <div class="tbl-wrap" style="margin:0;border:none;border-top:1px solid var(--border-soft);border-radius:0;">
+        <table>
+          <thead><tr><th>Object position</th><th>Image position</th><th>Size</th><th>Nature</th></tr></thead>
+          <tbody id="mirror-case-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:var(--text-faint);">The clickable cases are for a <b>concave</b> mirror — the only one with this many distinct cases. A convex mirror always gives a virtual, erect, diminished image between the pole and focus, regardless of object position; switch the toggle above to Convex to see it directly.</p>
+
+  <div class="section-head" style="margin-top:50px;">
+    <div class="k">Mirror formula</div>
+    <h2>Formula, magnification &amp; a worked numerical</h2>
+  </div>
+  <div class="formula-box">
+    <div class="lbl">Mirror formula</div>
+    <div class="eq">1/v + 1/u = 1/f</div>
+  </div>
+  <div class="formula-box">
+    <div class="lbl">Linear magnification</div>
+    <div class="eq">m = h′/h = −v/u</div>
+  </div>
+  <div class="acc"><div class="acc-h" onclick="toggleAcc(this)">Worked numerical <span class="arrow">+</span></div>
+    <div class="acc-body">
+      <p><b>Q.</b> An object 4 cm tall is placed 25 cm from a concave mirror of focal length 15 cm. Find the image position, size and nature.</p>
+      <p><b>Solution.</b> u = −25 cm, f = −15 cm (concave).<br>
+      1/v = 1/f − 1/u = −1/15 − (−1/25) = −1/15 + 1/25 = (−5+3)/75 = −2/75<br>
+      v = −37.5 cm<br>
+      m = −v/u = −(−37.5)/(−25) = −1.5 → h′ = m×h = −1.5×4 = −6 cm</p>
+      <p><b>Answer:</b> Image is 37.5 cm in front of the mirror, real, inverted, 6 cm tall (magnified).</p>
+    </div>
+  </div>
+
+  <div class="tip trick"><span class="lbl">Memory trick</span>For a concave mirror, remember "<b>SAME SIDE, SAME SIGN, REAL &amp; INVERTED</b>" for object between C and infinity — as the object moves closer to F, the image moves further from the mirror and grows.</div>
+</section>
+
+<!-- ============ REFRACTION ============ -->
+<section class="view" id="view-refraction">
+  <div class="section-head">
+    <div class="k">03 · Refraction</div>
+    <h2>Refraction of Light</h2>
+    <p>Light bends when it crosses into a medium where it travels at a different speed — that's it, that's the whole idea.</p>
+  </div>
+
+  <div class="acc open"><div class="acc-h" onclick="toggleAcc(this)">Laws of refraction &amp; Snell's Law <span class="arrow">+</span></div>
+    <div class="acc-body">
+      <ul>
+        <li>The incident ray, refracted ray and normal all lie in the same plane.</li>
+        <li><b>Snell's Law:</b> the ratio \( \sin i / \sin r \) is a constant for a given pair of media — called the refractive index.</li>
+      </ul>
+      <div class="formula-box"><div class="lbl">Snell's law</div><div class="eq">n₁ sin i = n₂ sin r</div></div>
+    </div>
+  </div>
+
+  <div class="sim">
+    <div class="sim-head">
+      <h4>🔬 Live: Snell's Law + Total Internal Reflection</h4>
+      <div class="seg" style="width:auto;">
+        <button class="active" onclick="refrSetPair('air-glass',this)">Air → Glass</button>
+        <button onclick="refrSetPair('glass-air',this)">Glass → Air</button>
+        <button onclick="refrSetPair('air-water',this)">Air → Water</button>
+      </div>
+    </div>
+    <div class="sim-body">
+      <div class="sim-canvas-wrap"><canvas id="cv-refract" height="380"></canvas></div>
+      <div class="sim-controls">
+        <div class="ctrl"><label>Angle of incidence <b id="refr-ival">30°</b></label><input type="range" id="refr-i" min="0" max="89" value="30"></div>
+        <div class="readout" id="refr-readout"></div>
+        <p id="refr-tir-note" style="font-size:12.5px;color:var(--amber);line-height:1.6;margin:0;display:none;">⚠ Beyond the critical angle: no refracted ray exists — this is <b>total internal reflection</b>, the principle behind optical fibres.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Medium pair</th><th>Refractive index (n)</th></tr></thead>
+      <tbody>
+        <tr><td>Vacuum → Air</td><td class="mono">1.0003 ≈ 1</td></tr>
+        <tr><td>Air → Water</td><td class="mono">1.33</td></tr>
+        <tr><td>Air → Crown glass</td><td class="mono">1.52</td></tr>
+        <tr><td>Air → Dense flint glass</td><td class="mono">1.65</td></tr>
+        <tr><td>Air → Diamond</td><td class="mono">2.42</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tip exam"><span class="lbl">Exam tip</span>Refractive index has no unit — it's a ratio of two speeds (or two sines). A very common one-mark question.</div>
+  <div class="tip mistake"><span class="lbl">Common mistake</span>Bending "towards the normal" happens when entering a <i>denser</i> medium (e.g. air → glass); "away from the normal" happens when entering a <i>rarer</i> medium (e.g. glass → air). Mixing these up is the #1 refraction error in exams.</div>
+</section>
+
+<!-- ============ LENSES ============ -->
+<section class="view" id="view-lenses">
+  <div class="section-head">
+    <div class="k">04 · Spherical Lenses</div>
+    <h2>Convex &amp; Concave Lenses</h2>
+    <p>A lens is bound by two curved (or one curved, one flat) surfaces. Two refractions happen — one at each surface — but we treat the lens as a single thin unit.</p>
+  </div>
+
+  <div class="grid grid-2" style="margin-bottom:10px;">
+    <div class="card"><div class="topic-icon">🔍</div><h3>Convex (converging) lens</h3><p>Thicker at the centre than the edges. Converges parallel rays to a real focus on the far side. Used in magnifying glasses, cameras, projectors, and to correct hypermetropia (far-sightedness).</p></div>
+    <div class="card"><div class="topic-icon">👓</div><h3>Concave (diverging) lens</h3><p>Thinner at the centre than the edges. Diverges parallel rays so they appear to come from a focus on the same side. Used to correct myopia (near-sightedness).</p></div>
+  </div>
+
+  <div class="sim">
+    <div class="sim-head">
+      <h4>🔬 Live: Lens ray-diagram simulator</h4>
+      <div class="seg" style="width:auto;">
+        <button class="active" onclick="lensSetType('convex',this)">Convex</button>
+        <button onclick="lensSetType('concave',this)">Concave</button>
+      </div>
+    </div>
+    <div class="sim-body">
+      <div class="sim-canvas-wrap"><canvas id="cv-lens" height="420"></canvas></div>
+      <div class="sim-controls">
+        <div class="ctrl"><label>Object distance |u| <b id="lens-uval">30 cm</b></label><input type="range" id="lens-u" min="5" max="100" value="30"></div>
+        <div class="ctrl"><label>Focal length |f| <b id="lens-fval">15 cm</b></label><input type="range" id="lens-f" min="5" max="30" value="15"></div>
+        <div class="readout" id="lens-readout"></div>
+      </div>
+    </div>
+    <div class="sim-cases">
+      <div class="sim-cases-lbl">Jump straight to a case — click a row, the diagram above updates instantly</div>
+      <div class="tbl-wrap" style="margin:0;border:none;border-top:1px solid var(--border-soft);border-radius:0;">
+        <table>
+          <thead><tr><th>Object position</th><th>Image position</th><th>Size</th><th>Nature</th></tr></thead>
+          <tbody id="lens-case-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:12.5px;color:var(--text-faint);">The clickable cases are for a <b>convex</b> lens — a concave lens always gives a virtual, erect, diminished image on the same side as the object, regardless of distance; switch the toggle above to Concave to see it directly.</p>
+
+  <div class="section-head"><div class="k">Lens formula &amp; power</div><h2>Formulas + calculator</h2></div>
+  <div class="formula-box"><div class="lbl">Lens formula</div><div class="eq">1/v − 1/u = 1/f</div></div>
+  <div class="formula-box"><div class="lbl">Magnification</div><div class="eq">m = h′/h = v/u</div></div>
+  <div class="formula-box"><div class="lbl">Power of a lens</div><div class="eq">P = 1/f  (f in metres, P in dioptres D)</div></div>
+
+  <div class="card" style="margin:20px 0;">
+    <h3 style="margin-bottom:14px;">Quick calculator</h3>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+      <div><label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:5px;">u (cm, negative)</label><input class="mono" id="calc-u" type="number" value="-30" style="width:100px;padding:8px 10px;background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);"></div>
+      <div><label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:5px;">f (cm, + convex / − concave)</label><input class="mono" id="calc-f" type="number" value="15" style="width:100px;padding:8px 10px;background:var(--panel);border:1px solid var(--border-soft);border-radius:8px;color:var(--text);"></div>
+      <button class="btn btn-primary" onclick="runCalc()">Solve</button>
+    </div>
+    <div class="readout" id="calc-out" style="margin-top:16px;"></div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Quantity</th><th>Positive</th><th>Negative</th></tr></thead>
+      <tbody>
+        <tr><td>Object distance (u)</td><td>—</td><td>always (object to the left)</td></tr>
+        <tr><td>Image distance (v)</td><td>real image (opposite side, lens) / in front (mirror)</td><td>virtual image</td></tr>
+        <tr><td>Focal length (f)</td><td>convex lens / convex mirror</td><td>concave lens / concave mirror</td></tr>
+        <tr><td>Height (h)</td><td>above principal axis</td><td>below principal axis</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ FORMULAS ============ -->
+<section class="view" id="view-formulas">
+  <div class="section-head"><div class="k">Reference</div><h2>Complete Formula Sheet</h2><p>Everything from this chapter, in one scroll — good for last-minute revision.</p></div>
+  <div class="grid grid-2">
+    <div class="formula-box"><div class="lbl">Laws of reflection</div><div class="eq">∠i = ∠r</div></div>
+    <div class="formula-box"><div class="lbl">Mirror formula</div><div class="eq">1/v + 1/u = 1/f</div></div>
+    <div class="formula-box"><div class="lbl">Mirror magnification</div><div class="eq">m = −v/u = h′/h</div></div>
+    <div class="formula-box"><div class="lbl">Radius &amp; focal length</div><div class="eq">f = R/2</div></div>
+    <div class="formula-box"><div class="lbl">Snell's law</div><div class="eq">n₁ sin i = n₂ sin r</div></div>
+    <div class="formula-box"><div class="lbl">Absolute refractive index</div><div class="eq">n = c / v</div></div>
+    <div class="formula-box"><div class="lbl">Lens formula</div><div class="eq">1/v − 1/u = 1/f</div></div>
+    <div class="formula-box"><div class="lbl">Lens magnification</div><div class="eq">m = v/u = h′/h</div></div>
+    <div class="formula-box"><div class="lbl">Power of lens</div><div class="eq">P = 1/f (metres → dioptre)</div></div>
+    <div class="formula-box"><div class="lbl">Combined power (contact lenses)</div><div class="eq">P = P₁ + P₂</div></div>
+  </div>
+</section>
+
+<!-- ============ QUIZ ============ -->
+<section class="view" id="view-quiz">
+  <div class="section-head"><div class="k">Test yourself</div><h2>Quick Quiz</h2><p>10 questions covering the whole chapter. Tap an option — feedback is instant.</p></div>
+  <div style="display:grid;grid-template-columns:1fr 220px;gap:24px;align-items:start;">
+    <div id="quiz-list"></div>
+    <div class="card quiz-score"><div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;">Score</div><div class="num" id="quiz-score">0/10</div><button class="btn btn-ghost" style="margin-top:14px;width:100%;" onclick="resetQuiz()">Reset</button></div>
+  </div>
+</section>
+
+<!-- ============ GLOSSARY ============ -->
+<section class="view" id="view-glossary">
+  <div class="section-head"><div class="k">Reference</div><h2>Glossary</h2></div>
+  <div class="card" id="glossary-list"></div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section class="view" id="view-about">
+  <div class="section-head"><div class="k">About</div><h2>About LightLab</h2><p>LightLab renders every ray diagram from the real mirror/lens equations with the NCERT Cartesian sign convention, rather than pre-drawn illustrations — so the diagrams stay physically correct at any object distance or focal length you choose. Built as a focused, honest study tool: fewer decorative sections, more things you can actually drag.</p></div>
+</section>
+
+</main>
+
+<div class="footer">LightLab · Light — Reflection and Refraction · NCERT Class 10 Science · built for self-study &amp; revision</div>
+
+<script>
+/* =========================================================
+   NAVIGATION
+========================================================= */
+const SECTIONS = [
+  {id:'home',label:'Home'},
+  {id:'overview',label:'Chapter Overview'},
+  {id:'reflection',label:'Reflection'},
+  {id:'mirrors',label:'Mirrors'},
+  {id:'refraction',label:'Refraction'},
+  {id:'lenses',label:'Lenses'},
+  {id:'formulas',label:'Formula Sheet'},
+  {id:'quiz',label:'Quiz'},
+  {id:'glossary',label:'Glossary'},
+  {id:'about',label:'About'}
+];
+const nav = document.getElementById('mainnav');
+SECTIONS.forEach(s=>{
+  const b = document.createElement('button');
+  b.className='navbtn'; b.textContent=s.label; b.onclick=()=>go(s.id);
+  b.id='nav-'+s.id;
+  nav.appendChild(b);
+});
+const SIM_REDRAW = {
+  reflection: ()=>drawReflection(),
+  mirrors: ()=>drawMirror(),
+  refraction: ()=>drawRefraction(),
+  lenses: ()=>drawLens()
+};
+function go(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.navbtn').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  // the view was display:none a moment ago, so any canvas inside it had
+  // zero width — redraw now that layout has given it real dimensions.
+  if(SIM_REDRAW[id]){
+    requestAnimationFrame(()=>requestAnimationFrame(SIM_REDRAW[id]));
+  }
+}
+go('home');
+
+document.getElementById('searchbox').addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    const q = e.target.value.toLowerCase();
+    const map = {
+      'concave mirror':'mirrors','convex mirror':'mirrors','mirror':'mirrors',
+      'convex lens':'lenses','concave lens':'lenses','lens':'lenses','power':'lenses',
+      'magnification':'formulas','snell':'refraction','refraction':'refraction','refractive index':'refraction',
+      'reflection':'reflection','focus':'mirrors','radius':'mirrors','formula':'formulas','quiz':'quiz'
+    };
+    for(const k in map){ if(q.includes(k)){ go(map[k]); return; } }
+  }
+});
+
+function toggleAcc(el){ el.parentElement.classList.toggle('open'); }
+
+/* =========================================================
+   CHAPTER MAP CARDS
+========================================================= */
+const chapterCards = [
+  {icon:'✨',t:'Reflection',d:'Laws, regular vs diffuse reflection, live angle demo.',go:'reflection'},
+  {icon:'🪞',t:'Mirrors',d:'Plane, concave, convex — full ray-diagram simulator.',go:'mirrors'},
+  {icon:'🌊',t:'Refraction',d:'Snell’s law, refractive index, total internal reflection.',go:'refraction'},
+  {icon:'🔍',t:'Lenses',d:'Convex & concave lenses, power, ray-diagram simulator.',go:'lenses'},
+  {icon:'📋',t:'Formula Sheet',d:'Every equation from the chapter on one page.',go:'formulas'},
+  {icon:'🧠',t:'Quiz',d:'10 questions, instant feedback, live score.',go:'quiz'},
+];
+const cmap = document.getElementById('chapter-map');
+chapterCards.forEach(c=>{
+  const d = document.createElement('div');
+  d.className='card card-hover';
+  d.onclick=()=>go(c.go);
+  d.innerHTML = `<div class="topic-icon">${c.icon}</div><h3>${c.t}</h3><p>${c.d}</p>`;
+  cmap.appendChild(d);
+});
+
+/* =========================================================
+   HERO THREE.JS SCENE — rotating concave mirror + converging rays
+========================================================= */
+(function(){
+  const canvas = document.getElementById('hero-canvas');
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  camera.position.set(0,1.2,9);
+
+  function resize(){
+    const w = canvas.parentElement.clientWidth, h = canvas.parentElement.clientHeight;
+    renderer.setSize(w,h,false);
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize',resize);
+
+  // concave mirror as a lathed dish
+  const pts=[];
+  for(let i=0;i<=20;i++){ const x=i/20*1.6; pts.push(new THREE.Vector2(x, x*x*0.55)); }
+  const mirrorGeo = new THREE.LatheGeometry(pts, 48);
+  const mirrorMat = new THREE.MeshPhysicalMaterial({color:0x9fd8ff, metalness:1, roughness:0.12, side:THREE.DoubleSide, envMapIntensity:1.2});
+  const mirror = new THREE.Mesh(mirrorGeo, mirrorMat);
+  mirror.rotation.z = Math.PI/2;
+  mirror.rotation.y = Math.PI/2;
+  mirror.position.set(1.6,0,0);
+  scene.add(mirror);
+
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.6,0.03,12,48), new THREE.MeshBasicMaterial({color:0xffb454}));
+  rim.position.set(1.6,0,0); rim.rotation.y=Math.PI/2;
+  scene.add(rim);
+
+  const amb = new THREE.AmbientLight(0x8899ff, 0.5); scene.add(amb);
+  const p1 = new THREE.PointLight(0x4d9fff, 2, 20); p1.position.set(-4,3,4); scene.add(p1);
+  const p2 = new THREE.PointLight(0xffb454, 1.4, 20); p2.position.set(3,-2,3); scene.add(p2);
+
+  // converging light rays: lines from a plane toward focus
+  const rayGroup = new THREE.Group(); scene.add(rayGroup);
+  const focusX = -0.4;
+  const rayCount = 10;
+  const rayLines = [];
+  for(let i=0;i<rayCount;i++){
+    const y = (i/(rayCount-1)-0.5)*2.6;
+    const mat = new THREE.LineBasicMaterial({color:0xffd479, transparent:true, opacity:0.55});
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-6, y, 0),
+      new THREE.Vector3(0.9, y*0.35, 0),
+      new THREE.Vector3(focusX,0,0)
+    ]);
+    const line = new THREE.Line(geo, mat);
+    rayGroup.add(line);
+    rayLines.push(line);
+  }
+  // focus glow
+  const focusGlow = new THREE.Mesh(new THREE.SphereGeometry(0.09,16,16), new THREE.MeshBasicMaterial({color:0xffe9b0}));
+  focusGlow.position.set(focusX,0,0);
+  scene.add(focusGlow);
+
+  // starfield-ish particles
+  const starGeo = new THREE.BufferGeometry();
+  const starCount=200, starPos=new Float32Array(starCount*3);
+  for(let i=0;i<starCount;i++){ starPos[i*3]=(Math.random()-0.5)*20; starPos[i*3+1]=(Math.random()-0.5)*12; starPos[i*3+2]=(Math.random()-0.5)*10-2; }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(starPos,3));
+  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({color:0x6677aa,size:0.03,transparent:true,opacity:0.6}));
+  scene.add(stars);
+
+  resize();
+  let t=0;
+  function animate(){
+    t+=0.01;
+    mirror.rotation.x = Math.sin(t*0.4)*0.15;
+    rim.rotation.x = mirror.rotation.x;
+    camera.position.x = Math.sin(t*0.15)*1.2;
+    camera.position.y = 1.2+Math.sin(t*0.2)*0.3;
+    camera.lookAt(0,0,0);
+    focusGlow.material.opacity = 0.6+Math.sin(t*3)*0.4;
+    requestAnimationFrame(animate);
+    renderer.render(scene,camera);
+  }
+  animate();
+})();
+
+/* =========================================================
+   PHYSICS HELPERS
+========================================================= */
+function mirrorSolve(u,f){
+  // 1/v + 1/u = 1/f  ->  v = f*u/(u-f)
+  if(Math.abs(u-f)<1e-6) return {v:Infinity, m:Infinity};
+  const v = (f*u)/(u-f);
+  const m = -v/u;
+  return {v,m};
+}
+function lensSolve(u,f){
+  // 1/v - 1/u = 1/f -> v = u*f/(u+f)
+  if(Math.abs(u+f)<1e-6) return {v:Infinity, m:Infinity};
+  const v = (u*f)/(u+f);
+  const m = v/u;
+  return {v,m};
+}
+function natureText(v,m,isLens){
+  const real = isLens ? v>0 : v<0;
+  const erect = m>0;
+  const size = Math.abs(m)>1.02?'Magnified':(Math.abs(m)<0.98?'Diminished':'Same size');
+  return {real, erect, size};
+}
+
+/* =========================================================
+   RAY-DIAGRAM CANVAS DRAWING (mirrors & lenses share logic)
+========================================================= */
+function setupCanvas(cv){
+  const dpr = Math.min(devicePixelRatio||1,2);
+  const cssW = cv.parentElement.clientWidth;
+  const cssH = cv.height;
+  cv.width = cssW*dpr; cv.height = cssH*dpr;
+  cv.style.height = cssH+'px';
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, w:cssW, h:cssH};
+}
+
+function drawAxis(ctx,w,h,originY){
+  ctx.strokeStyle='rgba(255,255,255,0.18)';
+  ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,originY); ctx.lineTo(w,originY); ctx.stroke();
+}
+
+function arrow(ctx,x1,y1,x2,y2,color,dashed){
+  ctx.save();
+  ctx.strokeStyle=color; ctx.lineWidth=2.2;
+  if(dashed) ctx.setLineDash([6,5]); else ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  const ang = Math.atan2(y2-y1,x2-x1);
+  ctx.setLineDash([]);
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-9*Math.cos(ang-0.35), y2-9*Math.sin(ang-0.35));
+  ctx.lineTo(x2-9*Math.cos(ang+0.35), y2-9*Math.sin(ang+0.35));
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function rayPath(ctx,pts,color,dashed){
+  ctx.save();
+  ctx.strokeStyle=color; ctx.lineWidth=1.6; ctx.globalAlpha=0.85;
+  if(dashed) ctx.setLineDash([5,5]); else ctx.setLineDash([]);
+  ctx.beginPath();
+  pts.forEach((p,i)=> i===0?ctx.moveTo(p[0],p[1]):ctx.lineTo(p[0],p[1]));
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ---- Reflection law demo ---- */
+let reflI = 40;
+function drawReflection(){
+  const {ctx,w,h} = setupCanvas(document.getElementById('cv-reflect'));
+  ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2;
+  // mirror (vertical line)
+  ctx.strokeStyle='#8fb8ff'; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.moveTo(cx,cy-110); ctx.lineTo(cx,cy+110); ctx.stroke();
+  // hatching behind mirror
+  ctx.strokeStyle='rgba(143,184,255,0.35)'; ctx.lineWidth=1.5;
+  for(let y=cy-105;y<cy+110;y+=12){ ctx.beginPath(); ctx.moveTo(cx,y); ctx.lineTo(cx+10,y+12); ctx.stroke(); }
+  // normal
+  ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.setLineDash([5,5]); ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(cx-150,cy); ctx.lineTo(cx+150,cy); ctx.stroke(); ctx.setLineDash([]);
+  const rad = reflI*Math.PI/180;
+  const L=150;
+  arrow(ctx, cx-L*Math.cos(rad), cy-L*Math.sin(rad), cx, cy, '#ffd479');
+  arrow(ctx, cx, cy, cx+L*Math.cos(rad), cy-L*Math.sin(rad), '#4fd8e0');
+  ctx.fillStyle='#fff'; ctx.font='12px Inter'; ctx.textAlign='center';
+  ctx.fillText('i', cx-24*Math.cos(rad/2), cy-16*Math.sin(rad/2)-4);
+  ctx.fillText('r', cx+24*Math.cos(rad/2), cy-16*Math.sin(rad/2)-4);
+  document.getElementById('refl-i-out').textContent = reflI+'°';
+  document.getElementById('refl-r-out').textContent = reflI+'°';
+}
+document.getElementById('refl-i').addEventListener('input', e=>{
+  reflI = +e.target.value;
+  document.getElementById('refl-ival').textContent = reflI+'°';
+  drawReflection();
+});
+
+/* ---- Mirror ray-diagram simulator ---- */
+let mirrorType='concave';
+function mirrorSetType(t,btn){
+  mirrorType=t;
+  document.querySelectorAll('#view-mirrors .seg button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawMirror();
+  buildMirrorCaseTable();
+}
+function drawMirror(){
+  const cv=document.getElementById('cv-mirror');
+  const {ctx,w,h}=setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const originY=h/2;
+  const mirrorPxX = w*0.62;
+  const scale = 5.2;
+  const uMag = +document.getElementById('mir-u').value;
+  const fMag = +document.getElementById('mir-f').value;
+  document.getElementById('mir-uval').textContent = uMag+' cm';
+  document.getElementById('mir-fval').textContent = fMag+' cm';
+
+  const f = mirrorType==='concave' ? -fMag : fMag;
+  const u = -uMag;
+  const ho = 22/scale; // fixed cm-equivalent height (visual)
+  const {v,m} = mirrorSolve(u,f);
+
+  drawAxis(ctx,w,h,originY);
+  // mirror curve — parabolic approximation of the spherical arc
+  ctx.strokeStyle='#8fb8ff'; ctx.lineWidth=4;
+  const R = fMag*2*scale;
+  ctx.beginPath();
+  for(let y=-140;y<=140;y+=2){
+    const off = (y*y)/(2*R);
+    const x = mirrorPxX + (mirrorType==='concave'? off : -off);
+    if(y===-140) ctx.moveTo(x,originY+y); else ctx.lineTo(x,originY+y);
+  }
+  ctx.stroke();
+  ctx.strokeStyle='rgba(143,184,255,0.3)'; ctx.lineWidth=1.2;
+  for(let y=-135;y<140;y+=14){
+    const off=(y*y)/(2*R);
+    const x = mirrorPxX + (mirrorType==='concave'? off : -off);
+    const dx = mirrorType==='concave'? 12: -12;
+    ctx.beginPath(); ctx.moveTo(x,originY+y); ctx.lineTo(x+dx,originY+y+12); ctx.stroke();
+  }
+  // mark P, F, C
+  markPoint(ctx, mirrorPxX, originY, 'P');
+  markPoint(ctx, mirrorPxX + f*scale, originY, 'F');
+  markPoint(ctx, mirrorPxX + 2*f*scale, originY, 'C');
+
+  // object
+  const ox = mirrorPxX + u*scale;
+  arrow(ctx, ox, originY, ox, originY-ho*scale, '#ffffff');
+
+  // three characteristic rays, constructed from standard mirror rules
+  const hoPx = ho*scale;
+  function line(y0,ctrlX,ctrlY){
+    const slope = (ctrlY-y0)/(ctrlX-mirrorPxX);
+    return {y0,slope};
+  }
+  const r1 = line(originY-hoPx, mirrorPxX+f*scale, originY);
+  const incidentPtX2 = mirrorPxX + 2*f*scale;
+  // ray2: object->F->mirror(reflect parallel)
+  const slopeInc2 = ((originY)-(originY-hoPx))/((mirrorPxX+f*scale)-ox);
+  const y0_2 = (originY-hoPx) + slopeInc2*(mirrorPxX-ox);
+  // ray3: object->C->mirror(retrace)
+  const slopeInc3 = ((originY)-(originY-hoPx))/((mirrorPxX+2*f*scale)-ox);
+  const y0_3 = (originY-hoPx) + slopeInc3*(mirrorPxX-ox);
+
+  const physSign = -1; // mirror: reflected rays travel back to the left
+  const extent = Math.max(60, Math.abs(v))*scale;
+
+  function drawMirrorRay(y0, slope, color){
+    // incident part
+    rayPath(ctx,[[ox,originY-hoPx],[mirrorPxX,y0]], color,false);
+    // physical reflected part (always solid, travels left)
+    const xEnd = mirrorPxX + physSign*extent;
+    const yEnd = y0 + slope*(xEnd-mirrorPxX);
+    rayPath(ctx,[[mirrorPxX,y0],[xEnd,yEnd]], color, false);
+  }
+  drawMirrorRay(originY-hoPx, r1.slope, 'rgba(255,212,121,0.9)');
+  drawMirrorRay(y0_2, 0, 'rgba(79,216,224,0.9)');
+  drawMirrorRay(y0_3, slopeInc3, 'rgba(139,123,243,0.9)');
+
+  // image
+  if(isFinite(v)){
+    const isReal = v<0;
+    const ix = mirrorPxX + v*scale;
+    const iy = originY - m*hoPx;
+    arrow(ctx, ix, originY, ix, iy, isReal?'#5fe0a0':'#ffb454', !isReal);
+    if(!isReal){
+      // dashed backward extension already effectively drawn by rays; ensure visible marker
+    }
+  }
+
+  ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.font='11px Inter'; ctx.textAlign='left';
+  ctx.fillText(mirrorType==='concave'?'Concave mirror':'Convex mirror', 14, 20);
+
+  // readout
+  const out = document.getElementById('mir-readout');
+  if(!isFinite(v)){
+    out.innerHTML = `<div class="row"><span>Image distance (v)</span><span>at infinity</span></div>`;
+  } else {
+    const {real,erect,size} = natureText(v,m,false);
+    out.innerHTML = `
+      <div class="row"><span>u</span><span>${u.toFixed(1)} cm</span></div>
+      <div class="row"><span>f</span><span>${f.toFixed(1)} cm</span></div>
+      <div class="row"><span>v</span><span>${v.toFixed(1)} cm</span></div>
+      <div class="row"><span>m</span><span>${m.toFixed(2)}</span></div>
+      <div class="row"><span>Nature</span><span class="${real?'tag-real':'tag-virtual'}">${real?'Real':'Virtual'}, ${erect?'Erect':'Inverted'}, ${size}</span></div>
+    `;
+  }
+}
+function markPoint(ctx,x,y,label){
+  ctx.fillStyle='#ffffff';
+  ctx.beginPath(); ctx.arc(x,y,2.6,0,7); ctx.fill();
+  ctx.font='11px JetBrains Mono'; ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.textAlign='center';
+  ctx.fillText(label,x,y+18);
+}
+document.getElementById('mir-u').addEventListener('input',drawMirror);
+document.getElementById('mir-f').addEventListener('input',drawMirror);
+
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+const MIRROR_CASES = [
+  {key:'infinity',   cols:['At infinity','At focus F','Highly diminished, point-sized','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'beyondC',    cols:['Beyond C','Between F and C','Diminished','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'atC',        cols:['At C','At C','Same size','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'betweenCF',  cols:['Between C and F','Beyond C','Magnified','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'atF',        cols:['At F','At infinity','Highly magnified','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'betweenFP',  cols:['Between F and P','Behind the mirror','Magnified','<span class="badge virtual">Virtual</span> &amp; Erect']},
+];
+function buildMirrorCaseTable(){
+  document.getElementById('mirror-case-table').innerHTML = MIRROR_CASES.map(r=>
+    `<tr data-case="${r.key}" onclick="selectMirrorCase('${r.key}')"><td>${r.cols[0]}</td><td>${r.cols[1]}</td><td>${r.cols[2]}</td><td>${r.cols[3]}</td></tr>`
+  ).join('');
+}
+buildMirrorCaseTable();
+
+function selectMirrorCase(key){
+  if(mirrorType!=='concave'){
+    mirrorType='concave';
+    document.querySelectorAll('#view-mirrors .seg button').forEach(b=>b.classList.remove('active'));
+    document.querySelector('#view-mirrors .seg button').classList.add('active');
+  }
+  const f = +document.getElementById('mir-f').value;
+  let uMag;
+  switch(key){
+    case 'infinity':  uMag = f*6; break;
+    case 'beyondC':   uMag = f*2.5; break;
+    case 'atC':       uMag = f*2; break;
+    case 'betweenCF': uMag = f*1.5; break;
+    case 'atF':       uMag = f; break;
+    case 'betweenFP': uMag = f*0.5; break;
+  }
+  uMag = clamp(Math.round(uMag),5,100);
+  document.getElementById('mir-u').value = uMag;
+  document.getElementById('mir-uval').textContent = uMag+' cm';
+  drawMirror();
+  document.querySelectorAll('#mirror-case-table tr').forEach(tr=>tr.classList.remove('case-active'));
+  const row = document.querySelector('#mirror-case-table tr[data-case="'+key+'"]');
+  if(row) row.classList.add('case-active');
+  row && row.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+/* ---- Refraction / Snell's law demo ---- */
+const mediaPairs = {
+  'air-glass': {n1:1.0,n2:1.5,label:'Air (n=1.00) → Glass (n=1.50)', tir:false},
+  'glass-air': {n1:1.5,n2:1.0,label:'Glass (n=1.50) → Air (n=1.00)', tir:true},
+  'air-water': {n1:1.0,n2:1.33,label:'Air (n=1.00) → Water (n=1.33)', tir:false}
+};
+let refrPair='air-glass';
+function refrSetPair(p,btn){
+  refrPair=p;
+  document.querySelectorAll('#view-refraction .seg button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawRefraction();
+}
+function drawRefraction(){
+  const {ctx,w,h}=setupCanvas(document.getElementById('cv-refract'));
+  ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2;
+  const pair = mediaPairs[refrPair];
+  const i = +document.getElementById('refr-i').value;
+  document.getElementById('refr-ival').textContent=i+'°';
+  // media fill
+  ctx.fillStyle='rgba(77,159,255,0.05)'; ctx.fillRect(0,cy,w,h-cy);
+  ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(0,0,w,cy);
+  // boundary
+  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(w,cy); ctx.stroke();
+  // normal
+  ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.setLineDash([5,5]); ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(cx,cy-140); ctx.lineTo(cx,cy+140); ctx.stroke(); ctx.setLineDash([]);
+
+  const radI = i*Math.PI/180;
+  const L=140;
+  // incident ray (from upper-left, medium1 above)
+  arrow(ctx, cx-L*Math.sin(radI), cy-L*Math.cos(radI), cx, cy, '#ffd479');
+
+  const sinR = pair.n1*Math.sin(radI)/pair.n2;
+  const out = document.getElementById('refr-readout');
+  const tirNote = document.getElementById('refr-tir-note');
+
+  if(sinR>1){
+    // total internal reflection
+    tirNote.style.display='block';
+    const critical = Math.asin(pair.n2/pair.n1)*180/Math.PI;
+    // reflected ray back into medium1
+    arrow(ctx, cx, cy, cx+L*Math.sin(radI), cy-L*Math.cos(radI), '#ff6b6b');
+    out.innerHTML = `
+      <div class="row"><span>Medium</span><span style="font-size:11px">${pair.label}</span></div>
+      <div class="row"><span>∠ incidence</span><span>${i}°</span></div>
+      <div class="row"><span>Critical angle</span><span>${critical.toFixed(1)}°</span></div>
+      <div class="row"><span>Result</span><span style="color:var(--red)">Total internal reflection</span></div>
+    `;
+  } else {
+    tirNote.style.display='none';
+    const radR = Math.asin(sinR);
+    const degR = radR*180/Math.PI;
+    arrow(ctx, cx, cy, cx+L*Math.sin(radR), cy+L*Math.cos(radR), '#4fd8e0');
+    // weak partial reflection for realism
+    arrow(ctx, cx, cy, cx+L*0.4*Math.sin(radI), cy-L*0.4*Math.cos(radI), 'rgba(255,107,107,0.35)');
+    out.innerHTML = `
+      <div class="row"><span>Medium</span><span style="font-size:11px">${pair.label}</span></div>
+      <div class="row"><span>∠ incidence (i)</span><span>${i}°</span></div>
+      <div class="row"><span>∠ refraction (r)</span><span>${degR.toFixed(1)}°</span></div>
+      <div class="row"><span>n₁ sin i</span><span>${(pair.n1*Math.sin(radI)).toFixed(3)}</span></div>
+      <div class="row"><span>n₂ sin r</span><span>${(pair.n2*Math.sin(radR)).toFixed(3)}</span></div>
+    `;
+  }
+  ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font='11px Inter'; ctx.textAlign='left';
+  ctx.fillText('medium 1', 10, cy-16);
+  ctx.fillText('medium 2 (denser or rarer, per selection)', 10, cy+20);
+}
+document.getElementById('refr-i').addEventListener('input',drawRefraction);
+
+/* ---- Lens ray-diagram simulator ---- */
+let lensType='convex';
+function lensSetType(t,btn){
+  lensType=t;
+  document.querySelectorAll('#view-lenses .seg button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawLens();
+}
+function drawLens(){
+  const cv=document.getElementById('cv-lens');
+  const {ctx,w,h}=setupCanvas(cv);
+  ctx.clearRect(0,0,w,h);
+  const originY=h/2;
+  const lensX=w*0.55;
+  const scale=5.2;
+  const uMag=+document.getElementById('lens-u').value;
+  const fMag=+document.getElementById('lens-f').value;
+  document.getElementById('lens-uval').textContent=uMag+' cm';
+  document.getElementById('lens-fval').textContent=fMag+' cm';
+
+  const f = lensType==='convex'? fMag : -fMag;
+  const u = -uMag;
+  const scaleHo = 22/scale;
+  const {v,m} = lensSolve(u,f);
+
+  drawAxis(ctx,w,h,originY);
+  // lens shape
+  ctx.strokeStyle='#8fb8ff'; ctx.lineWidth=4;
+  ctx.beginPath();
+  if(lensType==='convex'){
+    ctx.moveTo(lensX,originY-140);
+    ctx.quadraticCurveTo(lensX+26,originY,lensX,originY+140);
+    ctx.quadraticCurveTo(lensX-26,originY,lensX,originY-140);
+  } else {
+    ctx.moveTo(lensX-16,originY-140);
+    ctx.lineTo(lensX+16,originY-140);
+    ctx.quadraticCurveTo(lensX,originY,lensX-16,originY+0);
+    // simpler concave hourglass shape:
+  }
+  ctx.stroke();
+  if(lensType==='concave'){
+    ctx.beginPath();
+    ctx.moveTo(lensX,originY-140);
+    ctx.quadraticCurveTo(lensX-22,originY,lensX,originY+140);
+    ctx.moveTo(lensX,originY-140);
+    ctx.lineTo(lensX,originY+140);
+    ctx.strokeStyle='#8fb8ff';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lensX,originY-140);
+    ctx.quadraticCurveTo(lensX+22,originY,lensX,originY+140);
+    ctx.stroke();
+  }
+  markPoint(ctx, lensX, originY, 'O');
+  markPoint(ctx, lensX+f*scale, originY, 'F');
+  markPoint(ctx, lensX-f*scale, originY, 'F′');
+
+  const ox = lensX + u*scale;
+  const hoPx = scaleHo*scale;
+  arrow(ctx, ox, originY, ox, originY-hoPx, '#ffffff');
+
+  // ray1: parallel to axis -> refracts through F (image-side focus)
+  const y0_1 = originY-hoPx;
+  const slope1 = (originY-y0_1)/((lensX+f*scale)-lensX);
+  // ray2: through optical centre, undeviated
+  const slope2 = ((originY)-(originY-hoPx))/(lensX-ox);
+  const y0_2 = originY-hoPx + slope2*(lensX-ox);
+  // ray3: aimed at F' (object side focus at x = lensX-f*scale), emerges parallel
+  const slope3in = ((originY)-(originY-hoPx))/((lensX-f*scale)-ox);
+  const y0_3 = (originY-hoPx) + slope3in*(lensX-ox);
+
+  const physSign=1; // lens: refracted rays continue rightward
+  const extent = Math.max(60,Math.abs(v))*scale;
+
+  function drawLensRay(y0in, y0out, slopeOut, color){
+    rayPath(ctx,[[ox,originY-hoPx],[lensX,y0in]],color,false);
+    const xEnd = lensX+physSign*extent;
+    const yEnd = y0out + slopeOut*(xEnd-lensX);
+    rayPath(ctx,[[lensX,y0out],[xEnd,yEnd]],color,false);
+  }
+  drawLensRay(y0_1,y0_1,slope1,'rgba(255,212,121,0.9)');
+  drawLensRay(y0_2,y0_2,slope2,'rgba(79,216,224,0.9)');
+  drawLensRay(y0_3,y0_3,0,'rgba(139,123,243,0.9)');
+
+  if(isFinite(v)){
+    const isReal = v>0;
+    const ix = lensX+v*scale;
+    const iy = originY - m*hoPx;
+    arrow(ctx, ix, originY, ix, iy, isReal?'#5fe0a0':'#ffb454', !isReal);
+  }
+
+  ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.font='11px Inter'; ctx.textAlign='left';
+  ctx.fillText(lensType==='convex'?'Convex lens':'Concave lens', 14, 20);
+
+  const out = document.getElementById('lens-readout');
+  if(!isFinite(v)){
+    out.innerHTML=`<div class="row"><span>Image distance (v)</span><span>at infinity</span></div>`;
+  } else {
+    const {real,erect,size} = natureText(v,m,true);
+    out.innerHTML = `
+      <div class="row"><span>u</span><span>${u.toFixed(1)} cm</span></div>
+      <div class="row"><span>f</span><span>${f.toFixed(1)} cm</span></div>
+      <div class="row"><span>v</span><span>${v.toFixed(1)} cm</span></div>
+      <div class="row"><span>m</span><span>${m.toFixed(2)}</span></div>
+      <div class="row"><span>Nature</span><span class="${real?'tag-real':'tag-virtual'}">${real?'Real':'Virtual'}, ${erect?'Erect':'Inverted'}, ${size}</span></div>
+    `;
+  }
+}
+document.getElementById('lens-u').addEventListener('input',drawLens);
+document.getElementById('lens-f').addEventListener('input',drawLens);
+
+const LENS_CASES = [
+  {key:'infinity',  cols:['At infinity','At focus F','Highly diminished, point-sized','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'beyond2F',  cols:['Beyond 2F','Between F and 2F','Diminished','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'at2F',      cols:['At 2F','At 2F','Same size','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'betweenF2F',cols:['Between F and 2F','Beyond 2F','Magnified','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'atF',       cols:['At F','At infinity','Highly magnified','<span class="badge real">Real</span> &amp; Inverted']},
+  {key:'betweenOF', cols:['Between optical centre and F','Same side as object','Magnified','<span class="badge virtual">Virtual</span> &amp; Erect']},
+];
+function buildLensCaseTable(){
+  document.getElementById('lens-case-table').innerHTML = LENS_CASES.map(r=>
+    `<tr data-case="${r.key}" onclick="selectLensCase('${r.key}')"><td>${r.cols[0]}</td><td>${r.cols[1]}</td><td>${r.cols[2]}</td><td>${r.cols[3]}</td></tr>`
+  ).join('');
+}
+buildLensCaseTable();
+
+function selectLensCase(key){
+  if(lensType!=='convex'){
+    lensType='convex';
+    document.querySelectorAll('#view-lenses .seg button').forEach(b=>b.classList.remove('active'));
+    document.querySelector('#view-lenses .seg button').classList.add('active');
+  }
+  const f = +document.getElementById('lens-f').value;
+  let uMag;
+  switch(key){
+    case 'infinity':   uMag = f*6; break;
+    case 'beyond2F':   uMag = f*3; break;
+    case 'at2F':       uMag = f*2; break;
+    case 'betweenF2F': uMag = f*1.5; break;
+    case 'atF':        uMag = f; break;
+    case 'betweenOF':  uMag = f*0.5; break;
+  }
+  uMag = clamp(Math.round(uMag),5,100);
+  document.getElementById('lens-u').value = uMag;
+  document.getElementById('lens-uval').textContent = uMag+' cm';
+  drawLens();
+  document.querySelectorAll('#lens-case-table tr').forEach(tr=>tr.classList.remove('case-active'));
+  const row = document.querySelector('#lens-case-table tr[data-case="'+key+'"]');
+  if(row) row.classList.add('case-active');
+  row && row.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function runCalc(){
+  const u=+document.getElementById('calc-u').value;
+  const f=+document.getElementById('calc-f').value;
+  const {v,m}=lensSolve(u,f);
+  const {real,erect,size}=natureText(v,m,true);
+  const P = (1/(f/100)).toFixed(2);
+  document.getElementById('calc-out').innerHTML = `
+    <div class="row"><span>v</span><span>${isFinite(v)?v.toFixed(2)+' cm':'∞'}</span></div>
+    <div class="row"><span>m</span><span>${isFinite(m)?m.toFixed(2):'∞'}</span></div>
+    <div class="row"><span>Nature</span><span class="${real?'tag-real':'tag-virtual'}">${real?'Real':'Virtual'}, ${erect?'Erect':'Inverted'}, ${size}</span></div>
+    <div class="row"><span>Power (P=1/f)</span><span>${P} D</span></div>
+  `;
+}
+
+/* =========================================================
+   QUIZ
+========================================================= */
+const QUIZ = [
+  {q:"The angle of incidence is always measured from:", opts:["The mirror surface","The normal","The reflected ray","The principal axis"], a:1},
+  {q:"A concave mirror always used in vehicle headlights because it:", opts:["Diverges light","Converges light into a parallel beam","Gives a wider field of view","Absorbs light"], a:1},
+  {q:"For a convex mirror, the image formed is always:", opts:["Real and inverted","Virtual, erect and diminished","Virtual and magnified","Real and same size"], a:1},
+  {q:"If an object is placed at the centre of curvature of a concave mirror, the image forms:", opts:["At focus","At infinity","At C, same size, inverted","Behind the mirror"], a:2},
+  {q:"Refractive index has the unit of:", opts:["Metre","No unit","Second","Dioptre"], a:1},
+  {q:"Light bends towards the normal when it enters a medium that is:", opts:["Optically rarer","Optically denser","Same density","Opaque"], a:1},
+  {q:"The SI unit of power of a lens is:", opts:["Watt","Dioptre","Newton","Joule"], a:1},
+  {q:"A concave lens is used to correct:", opts:["Hypermetropia","Myopia","Astigmatism","Presbyopia"], a:1},
+  {q:"Total internal reflection occurs when light travels from a:", opts:["Rarer to denser medium at any angle","Denser to rarer medium beyond the critical angle","Denser to rarer medium at any angle","Rarer to denser medium beyond the critical angle"], a:1},
+  {q:"For a thin lens, if f = 25 cm, its power is:", opts:["+4 D","+0.25 D","-4 D","+25 D"], a:0},
+];
+let quizScore=0, quizAnswered=new Array(QUIZ.length).fill(false);
+function buildQuiz(){
+  const el = document.getElementById('quiz-list');
+  el.innerHTML='';
+  QUIZ.forEach((item,idx)=>{
+    const card = document.createElement('div');
+    card.className='card quiz-q';
+    card.innerHTML = `<div style="font-weight:600;font-size:14.5px;margin-bottom:4px;">Q${idx+1}. ${item.q}</div>
+      <div class="quiz-opts" id="qopts-${idx}"></div>`;
+    el.appendChild(card);
+    const optWrap = card.querySelector(`#qopts-${idx}`);
+    item.opts.forEach((opt,oi)=>{
+      const b = document.createElement('button');
+      b.className='qopt'; b.textContent=opt;
+      b.onclick=()=>answerQuiz(idx,oi,b);
+      optWrap.appendChild(b);
+    });
+  });
+}
+function answerQuiz(qi,oi,btn){
+  if(quizAnswered[qi]) return;
+  quizAnswered[qi]=true;
+  const opts = document.getElementById('qopts-'+qi).children;
+  const correct = QUIZ[qi].a;
+  for(let i=0;i<opts.length;i++) opts[i].disabled=true;
+  opts[correct].classList.add('correct');
+  if(oi!==correct){ btn.classList.add('wrong'); } else { quizScore++; }
+  document.getElementById('quiz-score').textContent = quizScore+'/'+QUIZ.length;
+}
+function resetQuiz(){ quizScore=0; quizAnswered=new Array(QUIZ.length).fill(false); document.getElementById('quiz-score').textContent='0/'+QUIZ.length; buildQuiz(); }
+buildQuiz();
+
+/* =========================================================
+   GLOSSARY
+========================================================= */
+const GLOSSARY = [
+  ['Pole (P)','The centre point of a spherical mirror’s reflecting surface.'],
+  ['Centre of curvature (C)','The centre of the sphere of which the mirror is a part.'],
+  ['Principal focus (F)','The point where rays parallel to the principal axis converge (or appear to diverge from) after reflection/refraction.'],
+  ['Focal length (f)','Distance between the pole and the principal focus.'],
+  ['Aperture','The diameter of the reflecting/refracting surface of a mirror or lens.'],
+  ['Refractive index (n)','Ratio of the speed of light in vacuum to its speed in the medium; also equals sin i / sin r for a ray entering that medium.'],
+  ['Power of a lens (P)','The reciprocal of the focal length in metres, measured in dioptres (D).'],
+  ['Critical angle','The angle of incidence (in the denser medium) for which the angle of refraction is 90°.'],
+  ['Total internal reflection','Complete reflection of light back into the denser medium when it strikes the boundary beyond the critical angle.'],
+  ['Magnification (m)','Ratio of the height of the image to the height of the object.'],
+];
+document.getElementById('glossary-list').innerHTML = GLOSSARY.map(g=>`<div class="glossary-item"><b>${g[0]}</b><span>${g[1]}</span></div>`).join('');
+
+/* =========================================================
+   INITIAL DRAWS + RESIZE
+========================================================= */
+function redrawAll(){
+  drawReflection();
+  drawMirror();
+  drawRefraction();
+  drawLens();
+}
+window.addEventListener('resize', ()=>{ clearTimeout(window._rt); window._rt=setTimeout(redrawAll,120); });
+redrawAll();
+</script>
+</body>
+</html>
